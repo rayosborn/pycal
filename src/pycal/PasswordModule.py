@@ -31,9 +31,9 @@ import Editor
 import GetModule
 import binascii
 import Cookie
+import hashlib
 import marshal
 import os
-import sha
 import string
 import time
 
@@ -43,7 +43,7 @@ def SetAdminPassword(password):
     omask = os.umask(022)                         # rw-r-----
     try:
         fp = open(filename, 'w')
-        fp.write(sha.new(password).hexdigest() + '\n')
+        fp.write(hashlib.new('sha1',password).hexdigest() + '\n')
         fp.close()
     finally:
         os.umask(omask)
@@ -64,12 +64,12 @@ def CheckAdminPassword(response):
     challenge = GetAdminPassword()
     if challenge is None:
         return None
-    return challenge == sha.new(response).hexdigest()
+    return challenge == hashlib.new('sha1',response).hexdigest()
 
 def MakeCookie(user, password, expires=31536000):
     """Construct a cookie from the username, password, and a timestamp."""
     # Get a digest of the secret, plus other informationpassword.
-    mac = sha.new(password).hexdigest()
+    mac = hashlib.new('sha1',password).hexdigest()
     # Create the cookie object.
     C = Cookie.SimpleCookie()
     C["user"] = binascii.hexlify(marshal.dumps((user, mac)))
@@ -130,7 +130,7 @@ def GetPassword(user):
         return GetAdminPassword()
     if user in GetModule.GetEditors():
         m = Editor.Editor(user)
-        return sha.new(m.password).hexdigest()
+        return hashlib.new('sha1',m.password).hexdigest()
     return None
 
 def CheckPassword(user, password):

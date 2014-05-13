@@ -23,17 +23,17 @@
 Modules to extract information from the editor and/or event databases.
 """
 
-from PyCal import *
+from pycal.PyCal import *
 import Editor
 import Event
 import CGImodule
+import DatabaseModule
 import OptionModule
 from Utilities import DatePath
 import os
 
 def GetEditors(name=False):
     """Return a list of calendar editors."""
-    import DatabaseModule
     editorList = DatabaseModule.Values("editors")
     editorList.sort()
     if name:
@@ -44,7 +44,6 @@ def GetEditors(name=False):
 
 def GetSupervisors(name=False):
     """Return a list of calendar supervisors."""
-    import DatabaseModule
     editors = DatabaseModule.Values("editors")
     supervisors = []
     if name:
@@ -68,7 +67,6 @@ def GetEditor(name):
         
 def GetContacts():
     """Return a list of calendar contacts."""
-    import DatabaseModule
     contactList = DatabaseModule.Values("contacts")
     contactList.sort()
     contacts = map(lambda c: c.user, contactList)
@@ -76,7 +74,6 @@ def GetContacts():
 
 def GetOrganizers():
     """Return a list of calendar organizers."""
-    import DatabaseModule
     organizerList = DatabaseModule.Values("editors") +\
                     DatabaseModule.Values("contacts")
     organizerList.sort()
@@ -85,7 +82,6 @@ def GetOrganizers():
 
 def GetEditorEmails():
     """Return a list of editor email addresses."""
-    import DatabaseModule
     editorList = DatabaseModule.Values("editors")
     editorList.sort()
     return map(lambda e: e.email, editorList)    
