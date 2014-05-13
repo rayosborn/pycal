@@ -4,6 +4,7 @@
 #-----------------------------------------------------------------------------
 
 from distutils.core import setup
+from setuptools import find_packages
 
 setup(name='PyCal',
       version='0.1',
@@ -11,6 +12,6 @@ setup(name='PyCal',
       author='Ray Osborn',
       author_email='rayosborn@mac.com',
       url='https://github.com/rayosborn/pycal',
-      packages=['pycal'],
-      scripts=['scripts/*.py']
-     )
+      package_dir = {'': 'src'},
+      packages = find_packages('src')
+)
