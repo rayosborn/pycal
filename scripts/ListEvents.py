@@ -53,7 +53,7 @@ def main():
             status = ["Approved"]
         if form.has_key("layout"):
             layout = form["layout"]
-        location, resource, category = None, None, None
+        organizer, location, resource, category = None, None, None, None
         if form.has_key("location"):
             if form["location"] <> "Location...":
                 location = form["location"]
@@ -63,6 +63,9 @@ def main():
         if form.has_key("category"):
             if form["category"] <> "Category...":
                 category = form["category"]
+        if form.has_key("organizer"):
+            if form["organizer"] <> "Organizer...":
+                organizer = form["organizer"]
         if form.has_key("startyear") and form.has_key("startmonth") and \
            form.has_key("startday"):
             start = ReadDate(form["startyear"], form["startmonth"], 
@@ -78,12 +81,9 @@ def main():
             length = 14
         year, month, day = start[0:3]
         print ListPage(year, month, day, length, type, status, layout,
-                      location, resource, category)
+                       organizer, location, resource, category)
     except CalendarError, errorText:
         print ErrorPage(errorText)
 
 if __name__ == "__main__":
     main()
-
-
-
