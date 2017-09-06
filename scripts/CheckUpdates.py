@@ -33,8 +33,18 @@ from pycal.Utilities import MonthDays
 def main():
 
     #Check if this script is already running in another process
-    if os.popen("ps axw").read().count("CheckUpdates.py") > 1:
-        return
+    try:
+        import psutil
+        for process in psutil.process_iter():
+            try:
+                if process.cmdline()[1].endswith('CheckUpdates.py'):
+                    if process.pid != os.getpid():
+                        return
+            except IndexError, psutil.NoSuchProcess:
+                pass
+    except ImportError:
+        pass
+
     try:
         days = OptionModule.Read("updates").keys()
         days.sort()
