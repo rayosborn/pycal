@@ -25,6 +25,7 @@ These modules print the HTML output used in various standard forms.
 
 import os
 import calendar
+import urllib
 
 from PyCal import *
 import CGImodule
@@ -49,19 +50,22 @@ def YearView(year):
     content.Add(CalendarOptions(year))
     return HTML.Page(title, content)
 
-def MonthView(year, month):
+def MonthView(year, month, category=None):
     """Return a web page displaying events for the specified month and year."""
     title = "%s - %s" % (calendarName, CalendarTitle(year, month))
     content = HTML.Container()
-    content.Add(str(PageModule.Page(year, month)))
+    if category:
+        content.Add(FormatMonthView(year, month, category))
+    else:
+        content.Add(str(PageModule.Page(year, month)))
     content.Add(CalendarOptions(year, month))
     return HTML.Page(title, content)
     
-def DayView(year, month, day, updated=False):
+def DayView(year, month, day, category=None, updated=False):
     """Return a web page displaying events for the specified day."""
     title = "%s - %s" % (calendarName, CalendarTitle(year, month, day))
     content = HTML.Container()
-    if updated: 
+    if updated or category: 
         content.Add(FormatDayView(year, month, day))
     else:
         content.Add(str(PageModule.Page(year, month, day)))
@@ -97,7 +101,7 @@ def FormatYearView(year):
     content.Add(navbar)
     return content
     
-def FormatMonthView(year, month):
+def FormatMonthView(year, month, category=None):
     """Format a web page displaying events for the specified month and year."""
     calendar.setfirstweekday(calendar.SUNDAY)
     content = HTML.Container()
@@ -120,7 +124,8 @@ def FormatMonthView(year, month):
                           ("%s/ViewCalendar.py?year=%d&month=%d&day=%d"
                            % (cgiURL, year, month, day), `day`)                     
                 if IsToday(year, month, day):
-                    cell = HTML.Cell(dayLink, class_="today")
+                    cell = HTML.Cell(HTML.NamedAnchor("today"), class_="today")
+                    cell.Add(dayLink)
                 elif day == week[0]:
                     cell = HTML.Cell(dayLink, class_="sunday")
                 else:
@@ -135,7 +140,7 @@ def FormatMonthView(year, month):
     content.Add(navbar)
     return content
 
-def FormatDayView(year, month, day):
+def FormatDayView(year, month, day, category=None):
     """Format a web page displaying events for the specified day."""
     calendar.setfirstweekday(calendar.SUNDAY)
     content = HTML.Container()
@@ -274,7 +279,9 @@ def EditorsPage(message=None):
             row.Add(HTML.Cell(e.phone, class_="center"))
         if authorized:
             row.Add(HTML.HeaderCell(HTML.Anchor("%s/EditEditor.py?editor=%s"
-                                                % (cgiURL, e.user), "Edit..."),       
+                                                % (cgiURL, 
+                                                   urllib.quote(e.user)), 
+                                                "Edit..."),       
                                     class_="sunday"))        
         table.Add(row)
     content.Add(table)
@@ -327,8 +334,7 @@ def ContactsPage(message=None):
                           class_="center"))
         row.Add(HTML.Cell(c.phone, class_="center"))
         row.Add(HTML.HeaderCell(HTML.Anchor("%s/EditContact.py?contact=%s"
-                                            % (cgiURL, 
-                                               c.user.replace("&", "%26")),
+                                            % (cgiURL, urllib.quote(c.user)),
                                             "Edit..."),       
                                 class_="sunday"))        
         table.Add(row)
@@ -394,7 +400,8 @@ def OptionsPage(options, message=None):
             row.Add(HTML.Cell(HTML.TAB))
         if authorized:
             row.Add(HTML.HeaderCell(HTML.Anchor("%s/EditOption.py?%s=%s"
-                                                % (cgiURL, option, selection),
+                                                % (cgiURL, option, 
+                                                   urllib.quote(selection)),
                                                 "Edit..."),
                                     class_="sunday"))        
         table.Add(row)
@@ -571,7 +578,11 @@ def ListForm(message=None):
         row = HTML.Row()
         options = ["Approved", "Requested"]
         row.Add(HTML.HeaderCell(HTML.Checkboxes("status", options, 
-                                ["Approved"]), colspan="3", class_="sunday"))
+                                ["Approved"]), colspan="2", class_="sunday"))
+        row.Add(HTML.HeaderCell(HTML.Selections("organizer", 
+                                                GetModule.GetOrganizers(),
+                                                label=True),
+                                class_="sunday"))
         table.Add(row)
     row = HTML.Row(HTML.HeaderCell(HTML.Submit(value="List Events"),
                                    class_="sunday", colspan="3"))
@@ -584,7 +595,7 @@ def ListForm(message=None):
 
 
 def ListPage(year, month, day, length, type=None, status=None, layout=None, 
-             location=None, resource=None, category=None):
+             organizer=None, location=None, resource=None, category=None):
     """Print a list of public events according to certain criteria.""" 
     content = HTML.Container()
     title = []
@@ -595,6 +606,8 @@ def ListPage(year, month, day, length, type=None, status=None, layout=None,
             title.append(location)
         if resource:
             title.append(resource)
+        if organizer:
+            title.append(organizer)
         title = ", ".join(title)
     if layout == "weekly":
         calendar.setfirstweekday(calendar.SUNDAY)
@@ -623,7 +636,7 @@ def ListPage(year, month, day, length, type=None, status=None, layout=None,
                 cell = HTML.Cell(dayLink, class_="sunday")
             else:
                 cell = HTML.Cell(dayLink)
-            events = GetModule.GetEvents(y, m, d, type, status,
+            events = GetModule.GetEvents(y, m, d, type, status, organizer,
                                          location, resource, category)
             for e in events:
                 if not e["title"]:
@@ -812,11 +825,8 @@ def EventList(year, month, day):
             if user:
                 para = HTML.Para(e["location"], class_="location")
                 if e["location"] in e["locations"]:
-                    if e["locations"][1:]:
-                        para.Add(HTML.Span(" (%s)" 
-                                           % ", ".join(e["locations"][1:]),
-                                           class_="hide"))
-                elif e["locations"]:
+                    e["locations"].remove(e["location"])
+                if e["locations"]:
                     para.Add(HTML.Span("(%s)" % ", ".join(e["locations"]),
                                        class_="hide"))
                 div.Add(para)
@@ -828,27 +838,27 @@ def EventList(year, month, day):
     else:
         return ""    
 
-def CurrentList(year, month, day, length, type, status,
+def CurrentList(year, month, day, length, type, status, organizer=None,
                 location=None, resource=None, category=None):
     """Print a list of events for the given day."""
     output = HTML.Div(class_="listview")
     y, m, d = year, month, day
     for next in range(length):
         div = HTML.Div()
-        events = GetModule.GetEvents(y, m, d, type, status, 
+        events = GetModule.GetEvents(y, m, d, type, status, organizer,
                                      location, resource, category)
         meetings = False
         for e in events:
             if not e["title"]:
                 e["title"] = "Untitled"
             if "Banner" in type and e["type"] == "Banner":
-                if location or resource or category:
-                    pass
-                else:
-                    div.Add(HTML.Header(HTML.Anchor("%s/ViewEvent.py?ID=%s" 
-                                                    % (cgiURL, e["ID"]),
-                                                    e["title"]),
-                                        style="margin:0", level=3))
+#               if location or resource or category:
+#                    pass
+#                else:
+                div.Add(HTML.Header(HTML.Anchor("%s/ViewEvent.py?ID=%s" 
+                                                % (cgiURL, e["ID"]),
+                                                e["title"]),
+                                    style="margin:0", level=3))
             elif "Holiday" in type and e["type"] == "Holiday":
                 title = HTML.Span(e["title"], class_="holiday")
                 div.Add(HTML.Header(HTML.Anchor("%s/ViewEvent.py?ID=%s" 
@@ -877,14 +887,14 @@ def CurrentList(year, month, day, length, type, status,
     else:
         return ""    
 
-def CompressedList(year, month, day, length, type, status, 
+def CompressedList(year, month, day, length, type, status, organizer=None,
                    location=None, resource=None, category=None):
     """Print a list of events for the given day in a compressed format."""
     output = HTML.Div(style="color:black")
     y, m, d = year, month, day
     for next in range(length):
         div = HTML.Div()
-        events = GetModule.GetEvents(y, m, d, type, status, 
+        events = GetModule.GetEvents(y, m, d, type, status, organizer,
                                      location, resource, category)
         meetings = False
         for e in events:
@@ -915,14 +925,14 @@ def CompressedList(year, month, day, length, type, status,
     else:
         return ""    
 
-def SignpostList(year, month, day, length, type, status, 
+def SignpostList(year, month, day, length, type, status, organizer=None,
                  location=None, resource=None, category=None):
     """Print a list of events for the given day in a one-line format."""
     output = HTML.Div(style="color:black")
     y, m, d = year, month, day
     for next in range(length):
         div = HTML.Div()
-        events = GetModule.GetEvents(y, m, d, type, status, 
+        events = GetModule.GetEvents(y, m, d, type, status, organizer,
                                      location, resource, category)
         meetings = False
         for e in events:
@@ -954,14 +964,14 @@ def SignpostList(year, month, day, length, type, status,
     else:
         return ""    
 
-def NoticeList(year, month, day, length, type, status,
+def NoticeList(year, month, day, length, type, status, organizer=None,
                location=None, resource=None, category=None):
     """Print a list of events for the given day in a two-line format."""
     output = HTML.Div(class_="listview", style="color:black")
     y, m, d = year, month, day
     for next in range(length):
         div = HTML.Div()
-        events = GetModule.GetEvents(y, m, d, type, status, 
+        events = GetModule.GetEvents(y, m, d, type, status, organizer,
                                      location, resource, category)
         meetings = False
         for e in events:
@@ -996,14 +1006,14 @@ def NoticeList(year, month, day, length, type, status,
     else:
         return ""    
 
-def WikiList(year, month, day, length, type, status,
+def WikiList(year, month, day, length, type, status, organizer=None,
                location=None, resource=None, category=None):
     """Print a list of events for the given day in a two-line format."""
     output = HTML.Div(class_="listview", style="color:black")
     y, m, d = year, month, day
     for next in range(length):
         div = HTML.Preformatted()
-        events = GetModule.GetEvents(y, m, d, type, status, 
+        events = GetModule.GetEvents(y, m, d, type, status, organizer,
                                      location, resource, category)
         meetings = False
         for e in events:
@@ -1104,6 +1114,54 @@ def ReducedMonth(year, month, links=False):
     output.Add(table)
     return output
 
+def ReducedMonthSmall(year, month, links=False):
+    """Print a smaller table containing the days in a specified month."""
+    calendar.setfirstweekday(calendar.SUNDAY)
+    output = HTML.Div(style="font-size:0.8em")
+    if links:
+        header = HTML.Table([16, 117, 16], align="center", style="margin:0", 
+                            cellspacing="0", border="0", class_="transparent")
+        row = HTML.Row()
+        row.Add(HTML.HeaderCell(PreviousLink(year, month, smaller=True),
+                                style="vertical-align:bottom",
+                                class_="transparent"))
+        row.Add(HTML.HeaderCell(HTML.Header(MonthLink(year, month), level=2,
+                                            class_="title"),
+                                class_="transparent"))
+        row.Add(HTML.HeaderCell(NextLink(year, month, smaller=True), 
+                                style="vertical-align:bottom",
+                                class_="transparent"))
+        header.Add(row)
+    else:
+        header = HTML.Header(MonthLink(year, month), level=2, class_="title")
+    output.Add(header)
+    table = HTML.Table([20, 20, 20, 20, 20, 20, 20], cellspacing="0", 
+                       align="center")
+    row = HTML.Row()
+    for day in calendar.weekheader(2).split():
+        row.Add(HTML.HeaderCell(day))
+    table.Add(row)
+    monthList = calendar.monthcalendar(year, month)
+    for week in monthList:
+        row = HTML.Row()
+        for day in week:
+            if day > 0:
+                dayLink = HTML.Anchor \
+                          ("%s/ViewCalendar.py?year=%d&month=%d&day=%d"
+                           % (cgiURL, year, month, day), `day`)
+                if IsToday(year, month, day):
+                    cell = HTML.HeaderCell(dayLink, class_="today")
+                elif day == week[0]:
+                    cell = HTML.HeaderCell(dayLink, class_="sunday")
+                else:
+                    cell = HTML.HeaderCell(dayLink, class_="weekday")
+            else:
+                cell = HTML.Cell("&nbsp;", class_="empty")
+            row.Add(cell)
+        table.Add(row)
+    output.Add(table)
+    return output
+
 def SideMonthsCell(year=None, month=None):
     """Display sidebar containing current and neighboring months."""
     cell = HTML.Cell()
@@ -1162,8 +1220,7 @@ def CalendarOptions(year=None, month=None, day=None):
     else:
         supervisor = False
     row = HTML.Row()
-    link = webURL
-    row.Add(HTML.HeaderCell(HTML.Anchor(link, "Home")))
+    row.Add(HTML.HeaderCell(HTML.Anchor(homeURL, "Home", target="_top")))
     y, m, d = Today()
     link = "%s/ViewCalendar.py?year=%d&month=%d&day=%d" % (cgiURL, y, m, d)
     row.Add(HTML.HeaderCell(HTML.Anchor(link, "Today")))
@@ -1183,7 +1240,7 @@ def CalendarOptions(year=None, month=None, day=None):
             link = "%s/ViewAdmin.py" % cgiURL
             row.Add(HTML.HeaderCell(HTML.Anchor(link, "Admin Page")))
         else:
-            link = "%s/EditEditor.py?editor=%s" % (cgiURL, user)
+            link = "%s/EditEditor.py?editor=%s" % (cgiURL, urllib.quote(user))
             row.Add(HTML.HeaderCell(HTML.Anchor(link, "Admin Page")))
         link = "%s/help.html" % webURL
         row.Add(HTML.HeaderCell(HTML.Anchor(link, "Help")))
@@ -1196,7 +1253,7 @@ def CalendarOptions(year=None, month=None, day=None):
     table.Add(row)
     return table
 
-def PreviousLink(year, month=None, day=None, ID=None, small=False):
+def PreviousLink(year, month=None, day=None, ID=None, small=False, smaller=False):
     """Return an HTML anchor containing a pointer to the previous period."""
     if ID:
         previousID = PreviousEvent(ID)
@@ -1213,6 +1270,8 @@ def PreviousLink(year, month=None, day=None, ID=None, small=False):
         y, m = PreviousMonth(year, month)
         if small:
             link = "%s/CurrentMonth.py?year=%d&month=%d" % (cgiURL, y, m)
+        elif smaller:
+            link = "%s/CurrentMonthSmall.py?year=%d&month=%d" % (cgiURL, y, m)
         else:
             link = "%s/ViewCalendar.py?year=%d&month=%d" % (cgiURL, y, m)
         title = "%s, %d" % (monthList[m-1], y)
@@ -1220,7 +1279,7 @@ def PreviousLink(year, month=None, day=None, ID=None, small=False):
         link = "%s/ViewCalendar.py?year=%d" % (cgiURL, year-1)
         title = "%d" % (year-1)
     if link:
-        if small:
+        if small or smaller:
             return HTML.Anchor(link,
                                HTML.Image(os.path.join(imgURL, "left.gif"),
                                           height=16, width=16),
@@ -1234,6 +1293,7 @@ def PreviousLink(year, month=None, day=None, ID=None, small=False):
 
 def ThisLink(year, month=None, day=None, ID=None):
     """Return an HTML anchor to the current period."""
+    target = "_self"
     if ID:
         link = "%s/ViewCalendar.py?year=%d&month=%d&day=%d" \
                % (cgiURL, year, month, day)
@@ -1247,11 +1307,12 @@ def ThisLink(year, month=None, day=None, ID=None):
     else:
         link = homeURL
         title = "Home Page"
+        target = "_top"
     return HTML.Anchor(link,
                        HTML.Image(os.path.join(imgURL, "up.gif")),
-                       title=title)
+                       title=title, target=target)
                                           
-def NextLink(year, month=None, day=None, ID=None, small=False):
+def NextLink(year, month=None, day=None, ID=None, small=False, smaller=False):
     """Return an HTML anchor containing a pointer to the next period."""
     if ID:
         nextID = NextEvent(ID)
@@ -1268,6 +1329,8 @@ def NextLink(year, month=None, day=None, ID=None, small=False):
         y, m = NextMonth(year, month)
         if small:
             link = "%s/CurrentMonth.py?year=%d&month=%d" % (cgiURL, y, m)
+        elif smaller:
+            link = "%s/CurrentMonthSmall.py?year=%d&month=%d" % (cgiURL, y, m)
         else:
             link = "%s/ViewCalendar.py?year=%d&month=%d" % (cgiURL, y, m)
         title = "%s, %d" % (monthList[m-1], y)
@@ -1275,7 +1338,7 @@ def NextLink(year, month=None, day=None, ID=None, small=False):
         link = "%s/ViewCalendar.py?year=%d" % (cgiURL, year+1)
         title = "%d" % (year+1)
     if link:
-        if small:
+        if small or smaller:
             return HTML.Anchor(link,
                                HTML.Image(os.path.join(imgURL, "right.gif"),
                                           height=16, width=16),
