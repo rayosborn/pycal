@@ -49,8 +49,8 @@ def PurgeTemporaryEvents():
     for dir in dirs:
         files = os.listdir(dir)
         for file in files:
-            creationTime = os.stat(os.path.join(dir, file))[stat.ST_ATIME]
-            if time.time() - creationTime > 24*60*60:
+            creationTime = os.stat(os.path.join(dir, file))[stat.ST_MTIME]
+            if time.time() - creationTime > 5*24*60*60:
                 os.remove(os.path.join(dir, file))
         if not os.listdir(dir):
             os.rmdir(dir)
@@ -62,7 +62,7 @@ def PurgeBackups():
     files = os.listdir(os.getcwd())
     for file in files:
         if file.startswith("calendar") and file.endswith("tar.gz"):
-            creationTime = os.stat(file)[stat.ST_ATIME]
+            creationTime = os.stat(file)[stat.ST_MTIME]
             if time.time() - creationTime > 7*24*60*60:
                 os.remove(file)
     
