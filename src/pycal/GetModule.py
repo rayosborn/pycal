@@ -86,7 +86,16 @@ def GetEditorEmails():
     editorList.sort()
     return map(lambda e: e.email, editorList)    
 
-def GetEvents(year, month, day, type=None, status=None,
+def GetSupervisorEmails():
+    """Return a list of supervisor email addresses."""
+    editors = DatabaseModule.Values("editors")
+    supervisors = []
+    for e in editors:
+        if e.authority == "Supervisor":
+            supervisors.append(e.email)
+    return supervisors    
+
+def GetEvents(year, month, day, type=None, status=None, organizer=None,
               location=None, resource=None, category=None):
     """Return a list of events for the given day."""
     user = CGImodule.CGIgetUser()
@@ -105,6 +114,8 @@ def GetEvents(year, month, day, type=None, status=None,
         events = filter(lambda e: e["status"] in status, events)
         events = filter(lambda e: e["type"] in type or 
                                   ("Setup" in type and e["setup"]), events)
+        if organizer:
+            events = filter(lambda e: organizer in e["organizer"], events)
         if location:
             events = filter(lambda e: location in e["locations"], events)
         if resource:
@@ -139,6 +150,7 @@ def GetCache(year, month, day):
                           "type": e.type,
                           "title": e.title,
                           "location": e.location,
+                          "organizer": e.organizer,
                           "start": e.start,
                           "end": e.end,
                           "repeats": e.repeats,
