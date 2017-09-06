@@ -24,6 +24,7 @@ Page class defining preformatted web pages.
 """
 
 import os
+import re
 import time
 
 from PyCal import *
@@ -63,11 +64,11 @@ class Page(object):
         if CGImodule.CGIgetUser():
             if not self.private:
                 self.Format(private=True)
-            return self.private
+            return ReplaceTimestamp(self.private)
         else:
             if not self.public:
                 self.Format()
-            return self.public
+            return ReplaceTimestamp(self.public)
 
     def Read(self):
         """Read the current Page database into the Page object."""
@@ -143,3 +144,13 @@ class Page(object):
         self.private = None
         self.Store()
                                               
+reTimestamp = re.compile(r"""&now=(\d*)""")
+
+def ReplaceTimestamp(text):
+    """Replace time stamp added to URLs to enforce reloads."""
+    matches = reTimestamp.search(text)
+    if matches:
+        text = text.replace(matches.group(1),str(int(time.time())))
+    return text
+
+    
